@@ -8,8 +8,30 @@
 
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 #include <thread>
 #include <vector>
+
+std::string parse_msg(std::string& msg) {
+  std::stringstream ss;
+  std::cout << msg << std::endl;
+  char c = msg[0];
+  int count = 0;
+  for (size_t i = 0; i < msg.size(); ++i) {
+    if (msg[i] == c) {
+      ++count;
+    } else {
+      ss << c << ": " << count << std::endl;
+      count = 1;
+      c = msg[i];
+    }
+    if (i == msg.size() - 1) {
+      ss << c << ": " << count << std::endl;
+    }
+  }
+
+  return ss.str();
+}
 
 int main() {
   std::string input;
@@ -39,57 +61,78 @@ int main() {
     throw std::runtime_error("Error in listen");
   }
 
-  std::vector<int> client_fds;
+  std::vector<int> client_fds;  // file descriptors of clients
+
   while (true) {
     if (input == "exit") {
       break;
     }
-    std::cout << "Waiting for client" << std::endl;
-    fd_set readset;
-    FD_ZERO(&readset);
-    FD_SET(server_fd, &readset);
+    std::vector<struct pollfd> fds;
+    fds.push_back({server_fd, POLLIN, 0});
     for (auto fd : client_fds) {
-      FD_SET(fd, &readset);
+      fds.push_back({fd, POLLIN, 0});
+    }
+    int ret = poll(fds.data(), fds.size(), 1000);
+    if (ret < 0) {
+      throw std::runtime_error("Error in poll");
+    } else if (ret == 0) {
+      std::cout << "No activity in 1 second" << std::endl;  //  timeout
+      continue;
     }
 
-    timeval timeout;
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
-
-    int max_fd = server_fd;
-    if (!client_fds.empty()) {
-      int max_fd = *std::max_element(client_fds.begin(), client_fds.end());
-      max_fd = std::max(server_fd, max_fd);
-    }
-
-    int res = select(max_fd + 1, &readset, NULL, NULL, &timeout);
-    if (res < 0) {
-      throw std::runtime_error("Error in select");
-    }
-    if (FD_ISSET(server_fd, &readset)) {
-      int client_fd = accept(server_fd, NULL, NULL);
+    if (fds[0].revents & POLLIN) {
+      int client_fd = accept(server_fd, nullptr, nullptr);
       if (client_fd < 0) {
         throw std::runtime_error("Error in accept");
       }
       client_fds.push_back(client_fd);
-      std::cout << "Client accepted" << std::endl;
-      //   continue;
     }
-
-    std::cout << "Reading from clients" << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    // for (auto fd : client_fds) {
-    //   if (FD_ISSET(fd, &readset)) {
-    char buffer[1024] = {0};
-    int s = read(client_fds.back(), buffer, 1024);
-    if (s < 0)
-      throw std::runtime_error("Error in read");
-    else
-      std::cout << buffer << std::endl;
-    //   } else {
-    //     std::cout << "No messages" << std::endl;
-    //   }
-    // }
+    for (int i = 1; i < static_cast<int>(fds.size()); i++) {
+      if (fds[i].revents & POLLIN) {
+        std::cout << "reading" << std::endl;  //  need to checks
+        std::string msg(1024, '\0');
+        int s = recv(fds[i].fd, msg.data(), msg.size(), 0);
+        std::cout << "readed " << s << std::endl;  //  need to check
+        if (s < 0) {
+          throw std::runtime_error("Error in recv");
+        } else if (s == 0) {
+          std::cout << "Closed" << std::endl;  //  need to check
+          close(fds[i].fd);
+          auto pos =
+              std::find_if(client_fds.begin(), client_fds.end(),
+                           [&fds, i](int fd) { return fd == fds[i].fd; });
+          client_fds.erase(pos);
+          continue;
+        }
+        msg.resize(s);
+        std::string command, text;
+        if (!msg.empty() && msg[0] == '#') {
+          auto first_space = msg.find_first_of(' ');
+          if (first_space != std::string::npos) {
+            command = msg.substr(0, first_space);
+            try {
+              text = msg.substr(first_space + 1);
+            } catch (std::out_of_range&) {
+              //
+            }
+          } else {
+            command = msg;
+          }
+        }
+        std::cout << "command: " << command << ", text: " << text << std::endl;
+        if (command == "#count_connection") {
+          msg = std::to_string(client_fds.size());
+          send(fds[i].fd, msg.c_str(), msg.size(), 0);
+        } else if (command == "#letter_count") {
+          std::string result = parse_msg(text);
+          send(fds[i].fd, result.c_str(), result.size(), 0);
+        } else {
+          for (auto fd : client_fds) {
+            if (fd != fds[i].fd) send(fd, msg.c_str(), msg.size(), 0);
+          }
+        }
+      }
+    }
   }
   exit_thread.join();
   for (auto fd : client_fds) {

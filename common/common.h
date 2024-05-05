@@ -16,10 +16,10 @@ class Socket {
  public:
   Socket() {
     fd_ = socket(AF_INET, SOCK_STREAM, 0);  // file descriptor
-    fcntl(fd_, F_SETFL, O_NONBLOCK);
+    // fcntl(fd_, F_SETFL, O_NONBLOCK);
   };
 
-  Socket(int fd) : fd_(fd) { fcntl(fd_, F_SETFL, O_NONBLOCK); };
+  // Socket(int fd) : fd_(fd) { fcntl(fd_, F_SETFL, O_NONBLOCK); };
 
   int get_fd() { return fd_; }
 
