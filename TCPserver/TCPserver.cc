@@ -46,10 +46,9 @@ int main() {
       },
       std::ref(input));
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);  // file descriptor
+  if (server_fd < 0) throw std::runtime_error("Error in socket");
   fcntl(server_fd, F_SETFL, O_NONBLOCK);
-  if (server_fd < 0) {
-    throw std::runtime_error("Error in socket");
-  }
+
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_port = htons(3425);                    // port
@@ -76,7 +75,7 @@ int main() {
     if (ret < 0) {
       throw std::runtime_error("Error in poll");
     } else if (ret == 0) {
-      std::cout << "No activity in 1 second" << std::endl;  //  timeout
+      // std::cout << "No activity in 1 second" << std::endl;  //  timeout
       continue;
     }
 
@@ -119,8 +118,11 @@ int main() {
             command = msg;
           }
         }
-        std::cout << "command: " << command << ", text: " << text << std::endl;
-        if (command == "#count_connection") {
+
+        if (command == "#exit") {
+          msg = "Goodbye!";
+          send(fds[i].fd, msg.c_str(), msg.size(), 0);
+        } else if (command == "#count_connection") {
           msg = std::to_string(client_fds.size());
           send(fds[i].fd, msg.c_str(), msg.size(), 0);
         } else if (command == "#letter_count") {
@@ -128,7 +130,10 @@ int main() {
           send(fds[i].fd, result.c_str(), result.size(), 0);
         } else {
           for (auto fd : client_fds) {
-            if (fd != fds[i].fd) send(fd, msg.c_str(), msg.size(), 0);
+            if (fd != fds[i].fd) {
+              std::string new_msg = "from users: " + msg;
+              send(fd, new_msg.c_str(), new_msg.size(), 0);
+            }
           }
         }
       }
