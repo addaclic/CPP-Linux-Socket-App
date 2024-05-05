@@ -1,37 +1,5 @@
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include <algorithm>
-#include <iostream>
-#include <sstream>
-#include <thread>
-#include <vector>
-
-std::string parse_msg(std::string& msg) {
-  std::stringstream ss;
-  std::cout << msg << std::endl;
-  char c = msg[0];
-  int count = 0;
-  for (size_t i = 0; i < msg.size(); ++i) {
-    if (msg[i] == c) {
-      ++count;
-    } else {
-      ss << c << ": " << count << std::endl;
-      count = 1;
-      c = msg[i];
-    }
-    if (i == msg.size() - 1) {
-      ss << c << ": " << count << std::endl;
-    }
-  }
-
-  return ss.str();
-}
+#include "common/common.h"
+#include "server.h"
 
 int main() {
   std::string input;
@@ -45,29 +13,28 @@ int main() {
         }
       },
       std::ref(input));
-  int server_fd = socket(AF_INET, SOCK_STREAM, 0);  // file descriptor
-  if (server_fd < 0) throw std::runtime_error("Error in socket");
-  fcntl(server_fd, F_SETFL, O_NONBLOCK);
+  common::Socket ServSock;
+  if (ServSock.get_fd() < 0) throw std::runtime_error("Error in socket");
+  fcntl(ServSock.get_fd(), F_SETFL, O_NONBLOCK);
 
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_port = htons(3425);                    // port
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);  // 127.0.0.1
-  if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+  if (bind(ServSock.get_fd(), (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     throw std::runtime_error("Error in bind");
   }
-  if (listen(server_fd, 5) < 0) {
+  if (listen(ServSock.get_fd(), 5) < 0) {
     throw std::runtime_error("Error in listen");
   }
 
   std::vector<int> client_fds;  // file descriptors of clients
 
   while (true) {
-    if (input == "exit") {
-      break;
-    }
+    if (input == "exit") break;
+
     std::vector<struct pollfd> fds;
-    fds.push_back({server_fd, POLLIN, 0});
+    fds.push_back({ServSock.get_fd(), POLLIN, 0});
     for (auto fd : client_fds) {
       fds.push_back({fd, POLLIN, 0});
     }
@@ -75,12 +42,11 @@ int main() {
     if (ret < 0) {
       throw std::runtime_error("Error in poll");
     } else if (ret == 0) {
-      // std::cout << "No activity in 1 second" << std::endl;  //  timeout
       continue;
     }
 
     if (fds[0].revents & POLLIN) {
-      int client_fd = accept(server_fd, nullptr, nullptr);
+      int client_fd = accept(ServSock.get_fd(), nullptr, nullptr);
       if (client_fd < 0) {
         throw std::runtime_error("Error in accept");
       }
@@ -143,6 +109,26 @@ int main() {
   for (auto fd : client_fds) {
     close(fd);
   }
-  close(server_fd);
   return 0;
+}
+
+std::string parse_msg(std::string& msg) {
+  std::stringstream ss;
+  std::cout << msg << std::endl;
+  char c = msg[0];
+  int count = 0;
+  for (size_t i = 0; i < msg.size(); ++i) {
+    if (msg[i] == c) {
+      ++count;
+    } else {
+      ss << c << ": " << count << std::endl;
+      count = 1;
+      c = msg[i];
+    }
+    if (i == msg.size() - 1) {
+      ss << c << ": " << count << std::endl;
+    }
+  }
+
+  return ss.str();
 }
