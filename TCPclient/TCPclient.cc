@@ -11,19 +11,15 @@ int main(int argc, char *argv[]) {
     std::cout << "Error in socket" << std::endl;
     return 1;
   }
-  struct sockaddr_in addr;
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(std::stoi(argv[2]));
-  inet_pton(AF_INET, argv[1], &(addr.sin_addr));
+  ClientSock.structInit(argv[1], argv[2]);
 
   std::cout << "Trying to connect..." << std::endl;
-  if (connect(ClientSock.get_fd(), (struct sockaddr *)&addr, sizeof(addr)) <
-      0) {
+  if (ClientSock.connectSocket() < 0) {
     std::cout << "Error in connect" << std::endl;
   }
   std::cout << "Connected" << std::endl;
 
-  std::thread aboba(recieve_msg, ClientSock.get_fd());
+  std::thread rcv_thread(recieve_msg, ClientSock.get_fd());
 
   std::string message;
   while (true) {
@@ -40,7 +36,7 @@ int main(int argc, char *argv[]) {
     }
   }
   close(ClientSock.get_fd());
-  aboba.join();
+  rcv_thread.join();
   return 0;
 }
 

@@ -15,18 +15,11 @@ int main() {
       std::ref(input));
   common::Socket ServSock;
   if (ServSock.get_fd() < 0) throw std::runtime_error("Error in socket");
-  fcntl(ServSock.get_fd(), F_SETFL, O_NONBLOCK);
 
-  struct sockaddr_in addr;
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(3425);                    // port
-  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);  // 127.0.0.1
-  if (bind(ServSock.get_fd(), (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-    throw std::runtime_error("Error in bind");
-  }
-  if (listen(ServSock.get_fd(), 5) < 0) {
-    throw std::runtime_error("Error in listen");
-  }
+  ServSock.makeNonblock();
+  ServSock.structInit();
+  if (ServSock.bindSocket() < 0) throw std::runtime_error("Error in bind");
+  if (ServSock.listenSocket() < 0) throw std::runtime_error("Error in listen");
 
   std::vector<int> client_fds;  // file descriptors of clients
 

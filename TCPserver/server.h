@@ -1,7 +1,6 @@
 #ifndef TCPSERVER_SERVER_H_
 #define TCPSERVER_SERVER_H_
 
-#include <fcntl.h>
 #include <sys/poll.h>
 
 #include <algorithm>
