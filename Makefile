@@ -1,4 +1,4 @@
-FLAGS = -Wall -Wextra -Werror
+FLAGS = -Wall -Wextra -Werror -std=c++17
 
 server: TCPserver/TCPserver.cc common/common.cc
 	g++ $(FLAGS) -I . TCPserver/TCPserver.cc common/common.cc -o server.out

@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Trying to connect..." << std::endl;
   if (ClientSock.connectSocket() < 0) {
     std::cout << "Error in connect" << std::endl;
+    return 1;
   }
   std::cout << "Connected" << std::endl;
 
