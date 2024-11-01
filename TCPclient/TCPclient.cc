@@ -3,41 +3,41 @@
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    std::cout << "Usage: " << argv[0] << " <ip> <port>" << std::endl;
+    LOG(COLOR_RED << "Usage: " << argv[0] << " <ip> <port>");
     return 1;
   }
-  common::Socket ClientSock;
-  if (ClientSock.get_fd() < 0) {
-    std::cout << "Error in socket" << std::endl;
+  common::Socket client_socket;
+  if (client_socket.get_fd() < 0) {
+    LOG(COLOR_RED << "Error in socket");
     return 1;
   }
-  ClientSock.structInit(argv[1], argv[2]);
+  client_socket.structInit(argv[1], argv[2]);
 
-  std::cout << "Trying to connect..." << std::endl;
-  if (ClientSock.connectSocket() < 0) {
-    std::cout << "Error in connect" << std::endl;
+  LOG(COLOR_YELLOW << "Trying to connect...");
+  if (client_socket.ConnectSocket() < 0) {
+    LOG(COLOR_RED << "Error in connect");
     return 1;
   }
-  std::cout << "Connected" << std::endl;
+  LOG(COLOR_GREEN << "Connected");
 
-  std::thread rcv_thread(recieve_msg, ClientSock.get_fd());
+  std::thread receive_thread(recieve_msg, client_socket.get_fd());
 
   std::string message;
   while (true) {
     std::cin >> std::ws;
     std::getline(std::cin, message);
     int condition =
-        send(ClientSock.get_fd(), message.c_str(), message.size(), 0);
+        send(client_socket.get_fd(), message.c_str(), message.size(), 0);
     if (condition <= 0) {
-      std::cout << "Error in send" << std::endl;
+      LOG(COLOR_RED << "Error in send");
       break;
     }
     if (message == "#exit") {
       break;
     }
   }
-  close(ClientSock.get_fd());
-  rcv_thread.join();
+  close(client_socket.get_fd());
+  receive_thread.join();
   return 0;
 }
 
@@ -47,6 +47,6 @@ void recieve_msg(int sockfd) {
     int s = recv(sockfd, msg.data(), msg.size(), 0);
     if (s <= 0) break;
 
-    std::cout << msg << std::endl;
+    LOG(COLOR_CYAN << msg);
   }
 };
