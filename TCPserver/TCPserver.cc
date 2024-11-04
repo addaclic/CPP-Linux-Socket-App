@@ -125,7 +125,7 @@ int main() {
 }
 
 std::string parse_msg(std::string& msg) {
-  std::stringstream ss;
+  std::string ss;
   std::cout << msg << std::endl;
   char c = msg[0];
   int count = 0;
@@ -133,14 +133,19 @@ std::string parse_msg(std::string& msg) {
     if (msg[i] == c) {
       ++count;
     } else {
-      ss << c << ": " << count << std::endl;
-      count = 1;
+      ss.push_back(c);
+      ss.push_back(':');
+      ss.push_back(' ');
+      ss.push_back('0' + count);
+      ss.push_back('\n');
       c = msg[i];
-    }
-    if (i == msg.size() - 1) {
-      ss << c << ": " << count << std::endl;
+      count = 1;
     }
   }
-
-  return ss.str();
+  ss.push_back(c);
+  ss.push_back(':');
+  ss.push_back(' ');
+  ss.push_back('0' + count);
+  ss.push_back('\n');
+  return ss;
 }
